@@ -2,16 +2,30 @@ import streamlit as st
 
 st.set_page_config(page_title="Trio Bestie Quiz 🚀", page_icon="🧸", layout="centered")
 
+# Custom Dark Pink Styling
 st.markdown("""
     <style>
-    .stApp { background-color: #FFF5F7; max-width: 800px; margin: 0 auto; }
-    .quiz-card { background-color: #FFFFFF; padding: 20px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin-bottom: 25px; border-left: 5px solid #FF69B4; }
-    .title-text { color: #D81B60; text-align: center; font-weight: bold; }
+    /* Dark Pink Theme Customization */
+    .stApp { background-color: #FFF0F5; max-width: 800px; margin: 0 auto; }
+    
+    /* Main Title & Subtitle */
+    .main-title { color: #FF1493; text-align: center; font-weight: 800; font-size: 32px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin-bottom: 10px; }
+    .sub-title { color: #C71585; text-align: center; font-weight: 600; font-size: 18px; margin-bottom: 25px; }
+    
+    /* Quiz Cards */
+    .quiz-card { background-color: #FFFFFF; padding: 18px; border-radius: 15px; box-shadow: 0 4px 12px rgba(255, 20, 147, 0.12); margin-bottom: 15px; border-left: 6px solid #FF1493; font-size: 18px; color: #C71585; font-weight: 700; }
+    
+    /* Radio Option Text Styling */
+    div[class*="stRadio"] label { color: #FF1493 !important; font-weight: 600 !important; font-size: 16px !important; }
+    
+    /* Submit Button */
+    div.stButton > button:first-child { background-color: #FF1493 !important; color: white !important; font-size: 18px !important; font-weight: bold !important; border-radius: 12px !important; border: none !important; padding: 10px 25px !important; width: 100% !important; box-shadow: 0 4px 10px rgba(255, 20, 147, 0.3) !important; }
+    div.stButton > button:first-child:hover { background-color: #C71585 !important; color: white !important; }
     </style>
 """, unsafe_allow_html=True)
 
-st.markdown("<h1 class='title-text'>🧸 The Ultimate Trio Quiz: Besties Edition! ✨</h1>", unsafe_allow_html=True)
-st.write("### Welcome Ankita! Kanan aur Kartik ke saath tumhari dosti ka sach aaj saamne aayega! 😂🔥")
+st.markdown("<h1 class='main-title'>🧸 The Ultimate Trio Quiz: Besties Edition! ✨</h1>", unsafe_allow_html=True)
+st.markdown("<div class='sub-title'>Welcome Ankita! Kanan aur Kartik ke saath tumhari dosti ka sach aaj saamne aayega! 😂🔥</div>", unsafe_allow_html=True)
 st.markdown("---")
 
 QUESTIONS = [
@@ -67,8 +81,8 @@ QUESTIONS = [
     },
     {
         "q": "11. Agar teeno kisi trip par jayein, toh sabse zyada photos & aesthetic clicks kisko chahiye hoti hain?",
-        "opts": ["Ankita - Dynamic angles & aesthetic vibes 📸", "Kanan - Bas landmark ki ek pic leke free ho jata hai 🏛️", "Kartik - Weirdly pose karke photo khinchwata hai 🤪", "Ankita cameraman banati hai baki dono ko 📽️"],
-        "ans": "Ankita cameraman banati hai baki dono ko 📽️"
+        "opts": ["Ankita - Dynamic angles & aesthetic vibes 📸", "Kanan - Bas landmark ki ek pic leke free ho jata hai 🏛️", "Kartik - Weirdly pose karke photo khinchwata hai 🤪", "Ankita cameraman banati hai baki dono ko 目录"],
+        "ans": "Ankita cameraman banati hai baki dono ko 目录"
     },
     {
         "q": "12. Teeno me sabse bada Foodie kaun hai jo hamesha 'Kuch khane chalein?' bolta rehta hai?",
@@ -95,7 +109,7 @@ QUESTIONS = [
 score = 0
 with st.form("quiz_form"):
     for idx, item in enumerate(QUESTIONS):
-        st.markdown(f'<div class="quiz-card"><b>{item["q"]}</b></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="quiz-card">{item["q"]}</div>', unsafe_allow_html=True)
         user_choice = st.radio("Choose your answer:", item["opts"], key=idx, label_visibility="collapsed")
         if user_choice == item["ans"]:
             score += 1
@@ -108,12 +122,12 @@ if submitted:
     st.markdown("---")
     st.success(f"🎉 Quiz Finished! Your Score: {score}/15 ✨")
     st.markdown("""
-        <div style="text-align: center; padding: 20px; background-color: #FFF; border-radius: 20px; border: 2px dashed #FF69B4;">
-            <h2 style="color: #FF1493;">🧸 OFFICIAL TRIO VERDICT 🧸</h2>
-            <p style="font-size: 18px; color: #4B0082; font-weight: bold;">
+        <div style="text-align: center; padding: 25px; background-color: #FFFFFF; border-radius: 20px; border: 3px dashed #FF1493; box-shadow: 0 4px 15px rgba(255, 20, 147, 0.2);">
+            <h2 style="color: #FF1493; font-weight: 800;">🧸 OFFICIAL TRIO VERDICT 🧸</h2>
+            <p style="font-size: 19px; color: #C71585; font-weight: bold; line-height: 1.6;">
                 Ankita, tumne Kanan aur Kartik ke saare mazaak aur questions pass kar liye!<br>
                 The Three Musketeers / Besties for Life! ❤️🔥
             </p>
-            <p style="font-size: 30px;">🧸🎈✨💖🎮</p>
+            <p style="font-size: 32px;">🧸🎈✨💖🎮</p>
         </div>
     """, unsafe_allow_html=True)
