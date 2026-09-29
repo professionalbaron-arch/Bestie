@@ -1,133 +1,348 @@
-import streamlit as st
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+=============================================================================
+🧸🥊 Bestie's Fight Club - Python Application Server & Engine
+=============================================================================
+A complete, robust, zero-dependency Python application for Bestie's Fight Club.
+Provides:
+  - Full local HTTP web server (Python standard library `http.server`)
+  - Multi-threaded request handling for smooth 60fps canvas gaming
+  - REST API backend for quiz stats, match history, leaderboard & roasts
+  - Persistent JSON database (data/game_data.json)
+  - Automatic browser launch & local network IP detection for mobile play
+=============================================================================
+"""
 
-st.set_page_config(page_title="Trio Bestie Quiz 🚀", page_icon="🧸", layout="centered")
+import sys
+import os
+import json
+import socket
+import threading
+import webbrowser
+import time
+from urllib.parse import urlparse, parse_qs
+from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 
-# Custom Dark Pink Styling
-st.markdown("""
-    <style>
-    /* Dark Pink Theme Customization */
-    .stApp { background-color: #FFF0F5; max-width: 800px; margin: 0 auto; }
-    
-    /* Main Title & Subtitle */
-    .main-title { color: #FF1493; text-align: center; font-weight: 800; font-size: 32px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin-bottom: 10px; }
-    .sub-title { color: #C71585; text-align: center; font-weight: 600; font-size: 18px; margin-bottom: 25px; }
-    
-    /* Quiz Cards */
-    .quiz-card { background-color: #FFFFFF; padding: 18px; border-radius: 15px; box-shadow: 0 4px 12px rgba(255, 20, 147, 0.12); margin-bottom: 15px; border-left: 6px solid #FF1493; font-size: 18px; color: #C71585; font-weight: 700; }
-    
-    /* Radio Option Text Styling */
-    div[class*="stRadio"] label { color: #FF1493 !important; font-weight: 600 !important; font-size: 16px !important; }
-    
-    /* Submit Button */
-    div.stButton > button:first-child { background-color: #FF1493 !important; color: white !important; font-size: 18px !important; font-weight: bold !important; border-radius: 12px !important; border: none !important; padding: 10px 25px !important; width: 100% !important; box-shadow: 0 4px 10px rgba(255, 20, 147, 0.3) !important; }
-    div.stButton > button:first-child:hover { background-color: #C71585 !important; color: white !important; }
-    </style>
-""", unsafe_allow_html=True)
+# Reconfigure standard output and error to UTF-8 on Windows
+if sys.platform.startswith('win'):
+    try:
+        sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+        sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
 
-st.markdown("<h1 class='main-title'>🧸 The Ultimate Trio Quiz: Besties Edition! ✨</h1>", unsafe_allow_html=True)
-st.markdown("<div class='sub-title'>Welcome Ankita! Kanan aur Kartik ke saath tumhari dosti ka sach aaj saamne aayega! 😂🔥</div>", unsafe_allow_html=True)
-st.markdown("---")
+# Optional colorized terminal output using installed colorama
+try:
+    from colorama import init, Fore, Style
+    init(autoreset=True)
+    HAS_COLOR = True
+except ImportError:
+    HAS_COLOR = False
 
-QUESTIONS = [
-    {
-        "q": "1. Hum teeno (Kanan, Kartik, Ankita) me se sabse pehle late-night gaming match ya phone call par kaun so jaata hai?",
-        "opts": ["Kanan - Pro gamer, poori raat jaag sakta hai! 🎮", "Kartik - Thoda der tikta hai fir khraate lene lagta hai 😴", "Ankita - Pehle hi bolti hai 'mujhe neend aa rahi hai' 💤", "Sab ke sab ek sath so jaate hain 😂"],
-        "ans": "Ankita - Pehle hi bolti hai 'mujhe neend aa rahi hai' 💤"
-    },
-    {
-        "q": "2. College me agar class bunk karke kahin bahar ghoomne ka plan bane, toh mastermind kaun hota hai?",
-        "opts": ["Kanan - Brain behind every plan 😎", "Kartik - Instigator jo sabko uksata hai 🔥", "Ankita - Pehle mana karti hai fir sabse pehle tayar ho jaati hai 🎒", "Hum teeno milkar hi chaos machate hain 💥"],
-        "ans": "Hum teeno milkar hi chaos machate hain 💥"
-    },
-    {
-        "q": "3. Squad gaming match (Free Fire / Mech Arena / Uncharted) me jab sabse tight situation hoti hai, toh clutch kaun marta hai aur sabse pehle knockout kaun hota hai?",
-        "opts": ["Kanan Clutch God hai, baki sab revive maangte hain 🏆", "Kartik Rambo bane bina soche ghus jaata hai 💣", "Ankita peeche se support/medic banti hai 🩺", "Sabse pehle panic button daba kar bhaagne wale hum teeno hain 🏃‍♂️"],
-        "ans": "Kanan Clutch God hai, baki sab revive maangte hain 🏆"
-    },
-    {
-        "q": "4. Raat ke 3 baje agar kisi ko weird musibat me help chahiye ho, toh Kartik aur Kanan me se sabse pehle phone kaun uthayega?",
-        "opts": ["Kanan - Hamesha ready for rescue 🦸‍♂️", "Kartik - Pehle 10 min roast karega fir aayega 🤣", "Dono ek sath phone uthaye bina nahi rahenge 📞", "Dono bolenge 'subah baat karte hain' 💤"],
-        "ans": "Dono ek sath phone uthaye bina nahi rahenge 📞"
-    },
-    {
-        "q": "5. Hum teeno me sabse zyada 'Drama Queen / Overthinker' kaun hai?",
-        "opts": ["Kanan - Chill rehta hai par andar se overthinker 🤔", "Kartik - Full dramatic baatein karta hai 🎭", "Ankita - Choti baat pe 10 page ka essay soch leti hai 📝", "Teeno ke teeno pagal hain 😜"],
-        "ans": "Teeno ke teeno pagal hain 😜"
-    },
-    {
-        "q": "6. College Canteen me jab bill aata hai, toh sabse pehle kaun bolta hai 'Aaj tum de do, kal main doonga'?",
-        "opts": ["Kanan - Sahi time pe wallet gayab kar leta hai 💸", "Kartik - Bolta hai 'bhai Google Pay nahi chal raha' 📲", "Ankita - chupchap khana khane me busy rehti hai 🍔", "Hum humesha divide kar lete hain (ya Kartik deta hai) 😂"],
-        "ans": "Hum humesha divide kar lete hain (ya Kartik deta hai) 😂"
-    },
-    {
-        "q": "7. Teeno me se sabse 'Secret Keeper' kaun hai jiske pet me baat pachti hai?",
-        "opts": ["Kanan - Vault ki tarah locked 🔒", "Kartik - Depend karta hai kiska secret hai 🤫", "Ankita - 'Kisi ko batana mat' bolke leak kar deti hai 📢", "Teeno ke paas ek doosre ke saare kaand hain 💣"],
-        "ans": "Teeno ke paas ek doosre ke saare kaand hain 💣"
-    },
-    {
-        "q": "8. College exam ke ek din pehle, group chat par sabse zyada panic kaun karta hai?",
-        "opts": ["Kanan - Silent killer, chupchap padh leta hai 📚", "Kartik - 'Bhai kuch nahi padha, pass kara do!' 😂", "Ankita - Important notes maangne ke liye spam karti hai 📄", "Teeno ek doosre ke bharose rehte hain 🤝"],
-        "ans": "Teeno ek doosre ke bharose rehte hain 🤝"
-    },
-    {
-        "q": "9. Agar hum teeno me fight ho jaye, toh sabse pehle 'Sorry' bolke patch-up kaun karwata hai?",
-        "opts": ["Kanan - Maturity se mamla solve karta hai 😇", "Kartik - Meme bhej kar sab normal kar deta hai 📲", "Ankita - Ego side me karke baat kar leti hai 💕", "Koi nahi bolta, 2 ghante baad apne aap bakchodi shuru ho jaati hai 🔥"],
-        "ans": "Koi nahi bolta, 2 ghante baad apne aap bakchodi shuru ho jaati hai 🔥"
-    },
-    {
-        "q": "10. Hum teeno ke group ka sabse bada Reel/TikTok addict kaun hai jo din bhar Instagram me rehta hai?",
-        "opts": ["Kanan - Video Editor hai toh Reels analyze karta hai 🎥", "Kartik - Din me 50 brain-rot memes bhejta hai 🤪", "Ankita - Continuous scrolling mode 📱", "Kartik aur Ankita dono milke DM bhar dete hain 📩"],
-        "ans": "Kartik aur Ankita dono milke DM bhar dete hain 📩"
-    },
-    {
-        "q": "11. Agar teeno kisi trip par jayein, toh sabse zyada photos & aesthetic clicks kisko chahiye hoti hain?",
-        "opts": ["Ankita - Dynamic angles & aesthetic vibes 📸", "Kanan - Bas landmark ki ek pic leke free ho jata hai 🏛️", "Kartik - Weirdly pose karke photo khinchwata hai 🤪", "Ankita cameraman banati hai baki dono ko 目录"],
-        "ans": "Ankita cameraman banati hai baki dono ko 目录"
-    },
-    {
-        "q": "12. Teeno me sabse bada Foodie kaun hai jo hamesha 'Kuch khane chalein?' bolta rehta hai?",
-        "opts": ["Kanan - Fast food specialist 🍕", "Kartik - Kuch bhi khila do, bas milna chahiye 🍔", "Ankita - Craving queen 🍟", "Teeno bas khane ke bahane milte hain ✨"],
-        "ans": "Teeno bas khane ke bahane milte hain ✨"
-    },
-    {
-        "q": "13. Kisi stranger ke saath arguing ya lafda ho jaye toh sabse pehle aage kaun aayega?",
-        "opts": ["Kanan & Kartik - Brotherly squad ready for battle 🥊", "Ankita - Apni baaton se hi saamne wale ko harade 🗣️", "Teeno milkar full support me khade ho jayenge 🤝", "Peeth dikha ke bhaag jayenge 😂"],
-        "ans": "Teeno milkar full support me khade ho jayenge 🤝"
-    },
-    {
-        "q": "14. Hum teeno me se sabse zyada Savage / Roast karne wala member kaun hai?",
-        "opts": ["Kanan - One-liner se bolti band 🤐", "Kartik - Non-stop roasting machine 🔥", "Ankita - Masoom ban kar sabse bada taana marti hai 😉", "Sab ek doosre ki tang kheenchte hain 24/7 😂"],
-        "ans": "Sab ek doosre ki tang kheenchte hain 24/7 😂"
-    },
-    {
-        "q": "15. Final Question: Ankita, kya tum Kanan aur Kartik ki bakwaas zindagi bhar jhelne ko tayar ho?",
-        "opts": ["Haan, koi aur option bhi hai kya? 🙄", "Haan, thoda jhel lungi 💖", "Locked & Signed 🔒", "All of the above! 😄"],
-        "ans": "All of the above! 😄"
+def log_color(text, color="green"):
+    if not HAS_COLOR:
+        print(text)
+        return
+    colors = {
+        "green": Fore.GREEN,
+        "cyan": Fore.CYAN,
+        "yellow": Fore.YELLOW,
+        "red": Fore.RED,
+        "magenta": Fore.MAGENTA,
+        "bright": Style.BRIGHT
     }
-]
+    print(colors.get(color, Fore.WHITE) + text + Style.RESET_ALL)
 
-score = 0
-with st.form("quiz_form"):
-    for idx, item in enumerate(QUESTIONS):
-        st.markdown(f'<div class="quiz-card">{item["q"]}</div>', unsafe_allow_html=True)
-        user_choice = st.radio("Choose your answer:", item["opts"], key=idx, label_visibility="collapsed")
-        if user_choice == item["ans"]:
-            score += 1
-        st.write("")
-    submitted = st.form_submit_button("Submit & Reveal Results 🧸🎉")
+# Directory configurations
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(BASE_DIR, "data")
+DATA_FILE = os.path.join(DATA_DIR, "game_data.json")
+INDEX_HTML = os.path.join(BASE_DIR, "index.html")
 
-if submitted:
-    st.balloons()
-    st.snow()
-    st.markdown("---")
-    st.success(f"🎉 Quiz Finished! Your Score: {score}/15 ✨")
-    st.markdown("""
-        <div style="text-align: center; padding: 25px; background-color: #FFFFFF; border-radius: 20px; border: 3px dashed #FF1493; box-shadow: 0 4px 15px rgba(255, 20, 147, 0.2);">
-            <h2 style="color: #FF1493; font-weight: 800;">🧸 OFFICIAL TRIO VERDICT 🧸</h2>
-            <p style="font-size: 19px; color: #C71585; font-weight: bold; line-height: 1.6;">
-                Ankita, tumne Kanan aur Kartik ke saare mazaak aur questions pass kar liye!<br>
-                The Three Musketeers / Besties for Life! ❤️🔥
-            </p>
-            <p style="font-size: 32px;">🧸🎈✨💖🎮</p>
-        </div>
-    """, unsafe_allow_html=True)
+# Ensure data directory exists
+os.makedirs(DATA_DIR, exist_ok=True)
+
+# Initial database structure
+INITIAL_DATA = {
+    "quiz_attempts": [],
+    "fight_records": [],
+    "leaderboard": {
+        "Ankita": {"quiz_passes": 0, "fights_won": 0, "total_score": 0},
+        "Kanan": {"quiz_passes": 0, "fights_won": 0, "total_score": 0},
+        "Kartik": {"quiz_passes": 0, "fights_won": 0, "total_score": 0}
+    },
+    "custom_roasts": [
+        "Even a sleepy teddy bear punches harder than that! 😭",
+        "Simmi Ma'am just gave you an F in Combat Studies. Go apologize to Ankita & Kanan right now! 💀",
+        "Did you study for this fight like you studied for the exams? Zero preparation! 🤦‍♂️",
+        "Your hits had less impact than Kartik saying 'Bas 2 min me aaya'! ⏰",
+        "College attendance was higher than your hit accuracy! 🏛️"
+    ]
+}
+
+def load_game_data():
+    if not os.path.exists(DATA_FILE):
+        save_game_data(INITIAL_DATA)
+        return INITIAL_DATA
+    try:
+        with open(DATA_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"[Warning] Could not read {DATA_FILE}: {e}")
+        return INITIAL_DATA
+
+def save_game_data(data):
+    try:
+        with open(DATA_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        print(f"[Error] Failed to save {DATA_FILE}: {e}")
+
+def get_local_ip():
+    """Finds the local LAN IP address so other devices/phones can connect."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        # doesn't even have to be reachable
+        s.connect(('10.255.255.255', 1))
+        ip = s.getsockname()[0]
+    except Exception:
+        ip = '127.0.0.1'
+    finally:
+        s.close()
+    return ip
+
+class BestiesHandler(SimpleHTTPRequestHandler):
+    """Custom HTTP Request Handler serving frontend + JSON REST APIs."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, directory=BASE_DIR, **kwargs)
+
+    def end_headers(self):
+        # Enable CORS for seamless P2P & local testing
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
+        super().end_headers()
+
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.end_headers()
+
+    def do_GET(self):
+        parsed = urlparse(self.path)
+        path = parsed.path
+
+        # 1. API: Server Health Status
+        if path == "/api/status":
+            self.send_json_response({
+                "status": "online",
+                "app": "Bestie's Fight Club 🧸🥊",
+                "version": "2.0.0",
+                "python_version": sys.version.split()[0],
+                "local_ip": get_local_ip()
+            })
+            return
+
+        # 2. API: Fetch Leaderboard & Stats
+        if path == "/api/leaderboard":
+            data = load_game_data()
+            self.send_json_response(data.get("leaderboard", {}))
+            return
+
+        # 3. API: Fetch All Characters Meta
+        if path == "/api/characters":
+            characters_meta = [
+                {"name": "Brahmdeep", "hindi": "ब्रह्मदीप", "avatar": "👳‍♂️", "trait": "Red Turban (Pagri)"},
+                {"name": "Simmi Ma'am", "hindi": "सिम्मी मैम", "avatar": "👩‍🏫", "trait": "Glasses & Pointer"},
+                {"name": "College", "hindi": "कॉलेज", "avatar": "🏛️", "trait": "Clock Crown Mascot"},
+                {"name": "Rihan", "hindi": "रिहान", "avatar": "🕶️", "trait": "Cool Street Fighter"},
+                {"name": "Saksham", "hindi": "सक्षम", "avatar": "⚡", "trait": "Lightning Speedster"},
+                {"name": "Kanan", "hindi": "कनन", "avatar": "🎀", "trait": "Cute Teddy Boxer"},
+                {"name": "Kartik", "hindi": "कार्तिक", "avatar": "🧢", "trait": "Cap-Wearing Brawler"},
+                {"name": "Ankita", "hindi": "अंकिता", "avatar": "🌸", "trait": "Flower Blossom Champion"}
+            ]
+            self.send_json_response(characters_meta)
+            return
+
+        # 4. API: Dynamic Roast Generator
+        if path == "/api/roast":
+            params = parse_qs(parsed.query)
+            character = params.get("character", ["Bestie"])[0]
+            score = params.get("score", ["0"])[0]
+            roasts = [
+                f"{character}, even a sleepy teddy bear punches harder than that! 😭",
+                f"Did {character} study for this fight like Kartik studies 1 night before exams? Zero preparation! 💀",
+                f"Simmi Ma'am just deducted 10 internal marks from {character}'s scorecard! 👩‍🏫",
+                f"{character}'s punch speed was slower than the group chat deciding where to eat! 🍕",
+                f"Go apologize to the Bestie Trio right now! 🧸🥊"
+            ]
+            import random
+            selected_roast = random.choice(roasts)
+            self.send_json_response({"character": character, "score": score, "roast": selected_roast})
+            return
+
+        # 5. Root Route: Serve index.html
+        if path in ("/", "/index.html"):
+            if os.path.exists(INDEX_HTML):
+                self.serve_file(INDEX_HTML, "text/html; charset=utf-8")
+                return
+
+        # Serve static assets through default handler
+        super().do_GET()
+
+    def do_POST(self):
+        parsed = urlparse(self.path)
+        path = parsed.path
+
+        # 1. API: Record Quiz Results
+        if path == "/api/quiz-stats":
+            payload = self.read_json_payload()
+            if payload:
+                player = payload.get("player", "Unknown")
+                score = payload.get("score", 0)
+                total = payload.get("total", 6)
+                passed = payload.get("passed", False)
+
+                data = load_game_data()
+                data["quiz_attempts"].append({
+                    "player": player,
+                    "score": score,
+                    "total": total,
+                    "passed": passed,
+                    "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
+                })
+                # Update Leaderboard
+                if player in data["leaderboard"]:
+                    data["leaderboard"][player]["total_score"] += score
+                    if passed:
+                        data["leaderboard"][player]["quiz_passes"] += 1
+                save_game_data(data)
+
+                self.send_json_response({"success": True, "message": "Quiz attempt recorded by Python backend! 🎯"})
+                return
+            self.send_error_response("Invalid payload", 400)
+            return
+
+        # 2. API: Record Fight Results
+        if path == "/api/record-fight":
+            payload = self.read_json_payload()
+            if payload:
+                player = payload.get("player", "Unknown")
+                enemy = payload.get("enemy", "Unknown")
+                winner = payload.get("winner", "Unknown")
+                mode = payload.get("mode", "solo")
+
+                data = load_game_data()
+                data["fight_records"].append({
+                    "player": player,
+                    "enemy": enemy,
+                    "winner": winner,
+                    "mode": mode,
+                    "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
+                })
+                if winner == "player" and player in data["leaderboard"]:
+                    data["leaderboard"][player]["fights_won"] += 1
+                save_game_data(data)
+
+                self.send_json_response({"success": True, "message": "Fight match logged by Python backend! 🥊"})
+                return
+            self.send_error_response("Invalid payload", 400)
+            return
+
+        self.send_error_response("Endpoint not found", 404)
+
+    def read_json_payload(self):
+        try:
+            content_length = int(self.headers.get("Content-Length", 0))
+            raw_body = self.rfile.read(content_length).decode("utf-8")
+            return json.loads(raw_body)
+        except Exception as e:
+            print(f"[Error] Failed to read JSON payload: {e}")
+            return None
+
+    def send_json_response(self, data, status=200):
+        body = json.dumps(data, ensure_ascii=False).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def send_error_response(self, message, status=400):
+        self.send_json_response({"error": message}, status)
+
+    def serve_file(self, file_path, content_type):
+        try:
+            with open(file_path, "rb") as f:
+                content = f.read()
+            self.send_response(200)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(content)))
+            self.end_headers()
+            self.wfile.write(content)
+        except Exception as e:
+            print(f"[Error] Failed serving file {file_path}: {e}")
+            self.send_error(500, "Internal Server Error")
+
+    def log_message(self, format, *args):
+        # Clean terminal logging
+        sys.stderr.write(f"[Python Server] {self.address_string()} - {format % args}\n")
+
+def find_available_port(start_port=5000, max_attempts=50):
+    """Finds an open port starting from start_port."""
+    for port in range(start_port, start_port + max_attempts):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            if s.connect_ex(('127.0.0.1', port)) != 0:
+                return port
+    return start_port
+
+def print_banner(port, local_ip):
+    banner = f"""
+========================================================================
+   🧸🥊 BESTIE'S FIGHT CLUB - PYTHON APPLICATION SERVER 🥊🧸
+========================================================================
+   [Edition]   : Friendship vs Hands (Pure Python Web & Game Engine)
+   [Status]    : RUNNING ONLINE 🟢
+   [Local URL] : http://localhost:{port}
+   [Phone URL] : http://{local_ip}:{port} (Play from any Phone/Tablet!)
+   [API Path]  : http://localhost:{port}/api/status
+========================================================================
+   Controls:
+   - D-PAD / Arrows  : Move / Jump / Crouch Block (🛡️)
+   - A / J           : Punch [🥊]
+   - S / K           : Kick [🦶]
+   - D / L / Space   : Special Attack [⚡]
+   - Press Ctrl + C  : Stop the server gracefully
+========================================================================
+    """
+    log_color(banner, "bright")
+
+def open_browser_delayed(url, delay=1.0):
+    time.sleep(delay)
+    try:
+        webbrowser.open(url)
+    except Exception as e:
+        print(f"[Notice] Please open {url} in your browser ({e})")
+
+def main():
+    port = find_available_port(5000)
+    local_ip = get_local_ip()
+
+    server = ThreadingHTTPServer(("0.0.0.0", port), BestiesHandler)
+
+    print_banner(port, local_ip)
+
+    # Automatically launch browser in background thread
+    threading.Thread(target=open_browser_delayed, args=(f"http://localhost:{port}",), daemon=True).start()
+
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        log_color("\n[Bestie's Fight Club] Server stopped gracefully. See you in the ring! 🧸🥊", "yellow")
+        server.server_close()
+        sys.exit(0)
+
+if __name__ == "__main__":
+    main()
