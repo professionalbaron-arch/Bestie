@@ -1,6 +1,3 @@
-def find_available_port(start_port=5000, max_attempts=50):
-    """Finds an open port starting from start_port."""
-    for port in range(start_port, start_port + max_attempts):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             if s.connect_ex(('127.0.0.1', port)) != 0:
                 return port
